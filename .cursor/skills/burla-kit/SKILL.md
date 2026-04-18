@@ -1,9 +1,9 @@
 ---
-name: burla
-description: Onboard a Burla account end-to-end, run parallel Python jobs via remote_parallel_map, and build Burla demos using the Burla Agent Starter Kit. Use when the user asks to set up Burla, log in, create a Burla account, run jobs on a Burla cluster, scale Python work across remote CPUs, or build/push Burla demos.
+name: burla-kit
+description: Onboard a Burla account end-to-end, run parallel Python jobs via remote_parallel_map, and build Burla demos using the Burla Agent Starter Kit (this repo). Invoked explicitly as /burla-kit. Use when the user asks to set up Burla, log in, create a Burla account, run jobs on a Burla cluster, scale Python work across remote CPUs, or build/push Burla demos via the starter kit.
 ---
 
-# Burla Agent Starter Kit Skill
+# Burla Agent Starter Kit Skill (/burla-kit)
 
 You are helping a user use **[Burla](https://burla.dev)** — a service that runs any Python function across many remote CPUs in parallel via `burla.remote_parallel_map` — through the tooling in **this repository**.
 
