@@ -1,0 +1,40 @@
+# Secrets & per-user state — NEVER commit
+.env
+.env.*
+!.env.example
+~/.burla/
+burla_credentials.json
+*.pem
+*.key
+
+# Per-user Playwright profile & session cookies
+chrome-profile/
+**/chrome-profile/
+
+# venvs
+.venv/
+venv/
+env/
+
+# Runtime / build artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# Debug
+*.log
+debug_*.png
+auth_page*.png
+dashboard.png
+*.screenshot.png
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/

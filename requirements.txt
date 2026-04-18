@@ -1,0 +1,5 @@
+# Minimal deps for the onboarder itself.
+# Job code runs in an auto-provisioned per-account venv (see burla_kit/venv.py)
+# so we don't pin `burla` here.
+playwright>=1.40
+python-dotenv>=1.0
