@@ -333,7 +333,7 @@ Set them inline, in `.env.example` → `.env`, or export in your shell.
 ## 7. Quick start (humans)
 
 ```bash
-git clone https://github.com/Jmp1062/burla-agent-starter-kit.git
+git clone https://github.com/Burla-Cloud/burla-agent-starter-kit.git
 cd burla-agent-starter-kit
 
 pip install -r requirements.txt
@@ -345,6 +345,17 @@ python onboard.py --email you@example.com --demo demos/square.py
 **First run:** a Chromium window opens. Sign in to Google when prompted (you'll see a `Waiting for Google sign-in` log line). That's the only moment of human intervention.
 
 **Every subsequent run:** zero intervention — the saved Playwright profile keeps you signed in, cluster state is auto-detected, and demos run.
+
+### Making `/burla` available in every Cursor workspace
+
+The kit ships a Cursor skill at `.cursor/skills/burla/SKILL.md`. When you open the kit as a Cursor workspace it registers as `/burla` automatically. To make `/burla` available from **any** Cursor workspace on this machine, symlink it into your user-scope skills directory:
+
+```bash
+mkdir -p ~/.cursor/skills-cursor
+ln -sfn "$(pwd)/.cursor/skills/burla" ~/.cursor/skills-cursor/burla
+```
+
+`scripts/bootstrap.sh` does this for you when run after cloning.
 
 ---
 

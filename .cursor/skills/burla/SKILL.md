@@ -1,9 +1,9 @@
 ---
-name: burla-kit
-description: Onboard a Burla account end-to-end, run parallel Python jobs via remote_parallel_map, and build Burla demos using the Burla Agent Starter Kit (this repo). Invoked explicitly as /burla-kit. Use when the user asks to set up Burla, log in, create a Burla account, run jobs on a Burla cluster, scale Python work across remote CPUs, or build/push Burla demos via the starter kit.
+name: burla
+description: Onboard a Burla account end-to-end, run parallel Python jobs via remote_parallel_map, and build Burla demos using the Burla Agent Starter Kit. Invoked as /burla. Use when the user asks to set up Burla, log in, create a Burla account, run jobs on a Burla cluster, scale Python work across remote CPUs, or build/push Burla demos via the starter kit.
 ---
 
-# Burla Agent Starter Kit Skill (/burla-kit)
+# Burla Agent Starter Kit Skill (/burla)
 
 You are helping a user use **[Burla](https://burla.dev)** — a service that runs any Python function across many remote CPUs in parallel via `burla.remote_parallel_map` — through the tooling in **this repository**.
 
@@ -64,8 +64,11 @@ Everything user-specific lives under `~/.burla/<slug>/`, where `<slug>` is the e
 **Rules for the agent:**
 
 - Edit `~/.burla/<slug>/user_config.json` and `.env` freely when provisioning that account.
+- Modify cluster settings via the Burla UI / API on the **user's** cluster (image, VM, authorized users) — the user has granted full admin actions on their own cluster.
 - Never commit anything under `~/.burla/` to any git repo.
 - Never place user-specific values (emails, cluster URLs, project ids) into this skill file or any committed file in the kit. Those values live under `~/.burla/<slug>/` only.
+- Never edit the canonical sections of this skill file with a specific user's URL, email, paths, or VM specs.
+- If `~/.burla/<slug>/.env` does not exist, create it and ensure `.env` is in `.gitignore`.
 
 ---
 
@@ -101,6 +104,39 @@ This shells out to `~/.burla/<slug>/.venv/bin/python` so the correct `burla` cli
 3. Define worker functions at **module top level** (must be picklable — no lambdas, no closures over outer state).
 4. Run it via `run_job.py` and confirm `REMOTE_OK` appears.
 5. Only **after** a successful remote run, ask the user whether to push to GitHub with a polished README.
+
+### D. Map-Reduce via shared filesystem
+
+`/workspace/shared` is a GCS-backed folder available on all worker nodes:
+
+- Write to `/workspace/shared/...` → file appears in GCS bucket
+- Read from `/workspace/shared/...` → reads from GCS bucket
+- Visible in the Burla dashboard under **Filesystem**
+- Use `Path(...).parent.mkdir(parents=True, exist_ok=True)` before writing nested paths
+
+```python
+from pathlib import Path
+from burla import remote_parallel_map
+
+def write_part(number):
+    path = f"/workspace/shared/demo/parts/{number}.txt"
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(f"{number}\n")
+    return path
+
+part_paths = remote_parallel_map(write_part, list(range(100)), grow=True)
+
+def combine(paths):
+    total = sum(int(Path(p).read_text().strip()) for p in paths)
+    out = "/workspace/shared/demo/total.txt"
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    Path(out).write_text(str(total))
+    return out
+
+remote_parallel_map(combine, [part_paths], func_cpu=8, func_ram=32, grow=True)
+```
+
+Wrap the reduce input in a list-of-one (`[part_paths]`) so it runs as a single call.
 
 ---
 
@@ -186,12 +222,14 @@ If the same error happens twice in a row after these steps, stop and report the 
 
 ## Hard rules (do not violate)
 
-- **Never** push to `https://github.com/Burla-Cloud/burla`.
+- **Never** push to `https://github.com/Burla-Cloud/burla` (that is the upstream Burla platform repo, not this kit).
 - **Never** commit `.env`, `chrome-profile/`, `.venv/`, or anything under `~/.burla/` to any git repo.
 - **Never** type or store the user's Google/OAuth password. Password entry must remain with the user.
 - **Never** bake user-specific emails, cluster URLs, or project ids into this skill file, the kit's source, or any README — they live under `~/.burla/<slug>/` only.
 - **Never** modify another tenant's cluster. Cluster changes are allowed only on the authenticated user's own cluster via their dashboard.
-- **Always** validate a demo locally before pushing it to GitHub.
+- **Never silently pivot.** If the chosen data source or approach is infeasible after multiple attempts, stop and tell the user — do not substitute a different data source or approach. A demo built on the wrong data (e.g. research papers when the pitch was patents) is worse than no demo. Ask before changing anything fundamental about the idea.
+- **Always** validate a demo locally before pushing it to GitHub. Burla cold starts are 3–5 min and errors are slow — don't use Burla as the first test of whether code works.
+- **Always** wait for `REMOTE_OK` before creating a GitHub repo for a demo. No repo, no remote, no push until the pipeline has run end-to-end on Burla.
 
 ---
 
