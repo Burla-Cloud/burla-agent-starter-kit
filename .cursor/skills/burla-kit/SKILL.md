@@ -112,27 +112,61 @@ from burla import remote_parallel_map
 def process(item):
     return result  # any picklable return
 
-results = remote_parallel_map(process, items)  # returns list
+results = remote_parallel_map(process, items)  # returns list (unordered!)
 ```
 
-Key kwargs (availability varies by client version — check `inspect.signature` if unsure):
+Full current signature (keep this up to date with https://docs.burla.dev):
+
+```python
+remote_parallel_map(
+    function_,            # picklable, <100MB pickled, module-top-level
+    inputs,               # list; tuples are unpacked into *args
+    func_cpu=1,
+    func_ram=4,
+    func_gpu=None,        # "A100"/"A100_40G", "A100_80G", "H100"/"H100_80G"
+    image=None,           # container image filter (+ new-node image when grow=True)
+    grow=False,           # auto-boot nodes; missing on burla<=1.4.5
+    max_parallelism=None,
+    detach=False,         # job survives local process exit
+    generator=False,      # yield as results complete (still unordered)
+    spinner=True,
+)
+```
+
+Kwarg cheat-sheet:
 
 | Kwarg | Default | Purpose |
 |---|---|---|
-| `func_cpu` | `1` | CPUs per worker instance |
-| `func_ram` | `4` | GB RAM per worker instance |
-| `max_parallelism` | `None` | Cap concurrent instances |
-| `generator` | `False` | Stream results as they arrive (`for r in …`) |
-| `detach` | `False` | Keep running past local process |
-| `spinner` | `True` | Progress spinner in terminal |
-| `grow` | *(≥ newer clients)* | Auto-provision nodes. Missing on `burla<=1.4.5`. |
+| `func_cpu` | `1` | CPUs per worker instance. |
+| `func_ram` | `4` | GB RAM per worker instance. |
+| `func_gpu` | `None` | `"A100"` / `"A100_40G"`, `"A100_80G"`, `"H100"` / `"H100_80G"`. One GPU per call. |
+| `image` | `None` | Restrict to nodes running this container image; with `grow=True`, new nodes boot with it. |
+| `grow` | `False` | Auto-provision additional nodes. Not present on `burla<=1.4.5` (kit handles this). |
+| `max_parallelism` | `None` | Cap concurrent running instances. |
+| `detach` | `False` | Keep running past the local process; detached jobs run indefinitely. |
+| `generator` | `False` | Stream results as they arrive (`for r in …`). |
+| `spinner` | `True` | Progress spinner in terminal. |
 
 Key runtime behaviors:
 
+- **Results are returned in no particular order** (both `list` mode and `generator=True`). Never assume `results[i]` corresponds to `inputs[i]` — include a correlator in the return value if you need to pair them.
+- Tuple items in `inputs` are unpacked into `*args` (`function_(*item)`); all other types are passed as a single argument.
 - Exceptions on workers re-raise on the client with full tracebacks.
-- `print()` output streams back in real time.
+- `print()` (and any `stdout`/`stderr`) streams back in real time.
 - Worker function imports are auto-detected and installed on workers.
-- Non-Python system deps (ffmpeg, libGL, etc.) require updating the cluster's container image.
+- Non-Python system deps (ffmpeg, libGL, etc.) require either a pre-built `image=...` or updating the cluster's container image.
+
+---
+
+## Burla CLI reference (the kit wraps this — don't call it directly)
+
+| Command | Purpose | Prerequisites | Kit interaction |
+|---|---|---|---|
+| `burla install` | Deploy a self-hosted Burla instance into the current `gcloud` project. Re-running updates the install. | `gcloud` CLI installed; `gcloud auth login` + `gcloud auth application-default login`; sufficient IAM perms (the command tells you which ones are missing). | **Never called by this kit.** Only used by a human operator standing up a self-hosted cluster. Do not invoke from agent onboarding flows. |
+| `burla login` | Opens the "Authorize this Machine" page in the default browser for the cluster the user most recently logged into via the dashboard. On Authorize, writes a refreshed auth token to `burla_credentials.json` in the OS user-data dir. | The user must have logged into the cluster's dashboard at least once in a browser. | Invoked automatically by `burla_kit/auth.py` as `burla login --no_browser` so the kit can scrape the auth URL and Playwright-click Authorize without spawning another browser. |
+| `--help` | CLI docs; works after any command or group. | — | Debugging only. |
+
+`burla_credentials.json` location (macOS): `~/Library/Application Support/burla/burla_credentials.json`. It is **global** — only the most recently authorized account is active.
 
 ---
 
