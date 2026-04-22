@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
 from .config import user_dir
 from .logging import err, info, ok, step, warn
@@ -118,15 +118,25 @@ def ensure_cluster_ready(
     default_python: str = "3.12",
     default_burla: str = "1.4.5",
     max_iterations: int = 6,
+    initial_python: Optional[str] = None,
+    initial_burla: Optional[str] = None,
 ) -> Tuple[str, str]:
     """Idempotently bring the cluster to a state where `remote_parallel_map`
     succeeds on a trivial input. Auto-remediates version mismatches and
     auto-Starts the cluster if needed.
 
+    `initial_python` / `initial_burla` override the hard defaults — callers
+    (e.g. onboard.py) should pass the versions previously pinned in
+    user_config.json so a working venv isn't needlessly rebuilt or
+    downgraded on every invocation.
+
     Returns (python_version, burla_version) used by the venv.
     """
     probe = VersionProbe(email)
-    py, bv = probe.ensure_default_venv(default_python, default_burla)
+    py, bv = probe.ensure_default_venv(
+        initial_python or default_python,
+        initial_burla or default_burla,
+    )
 
     ui_started_once = False
     for iteration in range(1, max_iterations + 1):

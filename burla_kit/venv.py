@@ -89,6 +89,11 @@ class VenvManager:
         subprocess.check_call([str(self.pip), "install", "-q", f"burla=={version}"])
         ok(f"burla=={version} installed into {self.root}")
 
+    def install_latest_burla(self) -> None:
+        step("[venv]", "installing latest burla from PyPI")
+        subprocess.check_call([str(self.pip), "install", "-q", "--upgrade", "burla"])
+        ok(f"latest burla installed into {self.root}")
+
     def ensure_python_and_burla(self, python_version: str, burla_version: str) -> None:
         """Idempotently ensure the venv matches the required versions."""
         need_recreate = not self.exists() or self.python_version() != python_version

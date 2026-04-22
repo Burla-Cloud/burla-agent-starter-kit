@@ -63,7 +63,12 @@ def onboard(email: str, auth_provider: str = "google", run_demo: Optional[str] =
 
     # Step 2 — self-healing cluster-ready loop
     step("[2/3]", "ensuring cluster is ON and client versions match (grow → UI Start fallback)")
-    py_version, burla_version = ensure_cluster_ready(email, cluster_url)
+    py_version, burla_version = ensure_cluster_ready(
+        email,
+        cluster_url,
+        initial_python=cfg.client_python_version,
+        initial_burla=cfg.client_burla_version,
+    )
 
     cfg.venv_python = str(VenvManager(email).python)
     cfg.client_python_version = py_version

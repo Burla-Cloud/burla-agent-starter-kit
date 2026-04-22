@@ -112,6 +112,17 @@ class VersionProbe:
             return ProbeResult.CLUSTER_OFF
         if "VersionMismatch" in output or "NodeConflict" in output or "No compatible containers" in output:
             return ProbeResult.VERSION_MISMATCH
+        # Newer clusters return config shapes that old clients crash on
+        # with cryptic KeyErrors inside the burla package itself. Treat
+        # these as version-mismatch signals so remediation can upgrade.
+        old_client_tells = (
+            "KeyError: 'client_svc_account_key'",
+            "KeyError: 'cluster_svc_account_key'",
+            "get_db_clients",
+            "_remote_parallel_map.py",
+        )
+        if any(t in output for t in old_client_tells) and "burla/" in output:
+            return ProbeResult.VERSION_MISMATCH
         return ProbeResult.UNKNOWN
 
     @staticmethod
@@ -141,14 +152,29 @@ class VersionProbe:
         return self.classify(out, code), out
 
     def remediate_versions(self, output: str, current_py: str, current_bv: str) -> Tuple[str, str, bool]:
-        """Look at `output` and update the venv in-place. Returns (new_py, new_bv, changed)."""
+        """Look at `output` and update the venv in-place. Returns (new_py, new_bv, changed).
+
+        If the cluster gives an explicit version hint, pin to it. If it
+        only gives a cryptic old-client crash (e.g. the 1.4.5 KeyError on
+        `client_svc_account_key`) without a parseable hint, upgrade burla
+        to the newest available release and re-probe — the newer client
+        will emit a clean VersionMismatch naming the exact version.
+        """
         new_py = self.parse_required_python(output) or current_py
         new_bv = self.parse_required_burla(output) or current_bv
         changed = (new_py != current_py) or (new_bv != current_bv)
         if changed:
             info(f"cluster wants python={new_py} burla={new_bv} (was {current_py}/{current_bv})")
             self.venv.ensure_python_and_burla(new_py, new_bv)
-        return new_py, new_bv, changed
+            return new_py, new_bv, changed
+
+        # No parseable hint — likely an old-client crash. Upgrade to the
+        # latest burla available from PyPI so the next probe yields a
+        # clean VersionMismatch with a concrete required version.
+        info("no version hint in output; upgrading burla to latest from PyPI to force a clean mismatch on next probe")
+        self.venv.install_latest_burla()
+        new_bv_latest = self.venv.burla_version() or current_bv
+        return new_py, new_bv_latest, new_bv_latest != current_bv
 
     def ensure_default_venv(self, python_version: str = "3.12", burla_version: str = "1.4.5") -> Tuple[str, str]:
         step("[venv]", f"ensuring default venv (python={python_version}, burla={burla_version})")
